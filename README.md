@@ -76,6 +76,20 @@ macOS Messages is unavailable in Cloud Run's Linux environment. Use Twilio for
 hosted SMS alerts by setting `NOTIFICATION_PROVIDER=twilio` and supplying the
 Twilio credentials through Secret Manager.
 
+## Free Render deployment
+
+`render.yaml` defines a free, password-protected Render web service. The
+Blueprint asks for the portfolio CSV, scheduler token, and Twilio values as
+private environment variables. A GitHub Actions workflow calls the protected
+refresh endpoint every five minutes. Add matching `SERVICE_URL` and
+`SCHEDULER_TOKEN` secrets to the GitHub repository after Render assigns the
+service URL.
+
+Render's free service uses an ephemeral filesystem, so SQLite alert history can
+reset after a restart or redeploy. Scheduled workflows in inactive public
+repositories can also be disabled by GitHub after 60 days without repository
+activity.
+
 ## Data note
 
 This app uses the third-party `yfinance` package to access publicly available Yahoo Finance data for personal use. Quotes may be delayed or temporarily unavailable and should not be treated as an execution-grade market-data feed.

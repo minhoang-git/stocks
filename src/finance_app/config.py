@@ -47,6 +47,7 @@ class Settings:
     web_auth_username: str = ""
     web_auth_password: str = ""
     scheduler_token: str = ""
+    portfolio_csv: str = ""
 
     @property
     def database_abspath(self) -> str:
@@ -109,4 +110,5 @@ def get_settings() -> Settings:
         web_auth_username=os.getenv("WEB_AUTH_USERNAME", "").strip(),
         web_auth_password=os.getenv("WEB_AUTH_PASSWORD", ""),
         scheduler_token=os.getenv("SCHEDULER_TOKEN", ""),
+        portfolio_csv=os.getenv("PORTFOLIO_CSV", ""),
     )

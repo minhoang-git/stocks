@@ -1,0 +1,42 @@
+services:
+  - type: web
+    name: portfolio-pulse-minhoang
+    runtime: docker
+    plan: free
+    region: oregon
+    branch: main
+    autoDeployTrigger: commit
+    healthCheckPath: /health
+    envVars:
+      - key: WEB_AUTH_USERNAME
+        value: portfolio
+      - key: WEB_AUTH_PASSWORD
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SCHEDULER_TOKEN
+        sync: false
+      - key: PORTFOLIO_CSV
+        sync: false
+      - key: MONITOR_DATABASE_PATH
+        value: /tmp/portfolio_monitor.db
+      - key: DISABLE_BACKGROUND_SCHEDULER
+        value: "true"
+      - key: NOTIFICATION_PROVIDER
+        value: twilio
+      - key: MAC_MESSAGES_ENABLED
+        value: "false"
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_FROM_NUMBER
+        sync: false
+      - key: ALERT_TO_NUMBER
+        sync: false
+      - key: REFRESH_INTERVAL_MINUTES
+        value: "5"
+      - key: ALERT_COOLDOWN_HOURS
+        value: "24"
+      - key: LOW_TOLERANCE_PCT
+        value: "0"

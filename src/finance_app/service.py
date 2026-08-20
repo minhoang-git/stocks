@@ -9,7 +9,7 @@ from . import db
 from .config import Settings
 from .market_data import YahooMarketDataClient
 from .notifications import NotificationService
-from .portfolio import load_portfolio
+from .portfolio import load_portfolio, load_portfolio_text
 
 
 class PortfolioMonitorService:
@@ -28,7 +28,12 @@ class PortfolioMonitorService:
         self.sync_portfolio()
 
     def sync_portfolio(self) -> list[dict[str, Any]]:
-        entries = [entry.as_dict() for entry in load_portfolio(self.settings.portfolio_abspath)]
+        portfolio = (
+            load_portfolio_text(self.settings.portfolio_csv)
+            if self.settings.portfolio_csv
+            else load_portfolio(self.settings.portfolio_abspath)
+        )
+        entries = [entry.as_dict() for entry in portfolio]
         db.sync_watchlist(self.db_path, entries)
         db.seed_reference_quotes(self.db_path, entries)
         return entries
@@ -159,7 +164,10 @@ class PortfolioMonitorService:
             "notification_provider_label": self.notifier.provider_label,
             "refresh_interval_minutes": self.settings.refresh_interval_minutes,
             "alert_cooldown_hours": self.settings.alert_cooldown_hours,
-            "portfolio_filename": self.settings.portfolio_abspath.rsplit("/", 1)[-1],
+            "portfolio_filename": (
+                "hosted portfolio" if self.settings.portfolio_csv
+                else self.settings.portfolio_abspath.rsplit("/", 1)[-1]
+            ),
             "is_cloud_run": bool(os.getenv("K_SERVICE")),
         }
 

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from finance_app.portfolio import load_portfolio
+from finance_app.portfolio import load_portfolio, load_portfolio_text
 
 
 def test_load_portfolio_reads_symbols_and_optional_position_fields(tmp_path: Path):
@@ -28,3 +28,10 @@ def test_load_portfolio_deduplicates_symbols_using_latest_row(tmp_path: Path):
 
     assert len(entries) == 1
     assert entries[0].reference_price == 200.0
+
+
+def test_load_portfolio_from_hosted_secret():
+    entries = load_portfolio_text("Symbol,Quantity\nAAPL,2\nMSFT,3\n")
+
+    assert [entry.symbol for entry in entries] == ["AAPL", "MSFT"]
+    assert entries[0].quantity == 2

@@ -1,0 +1,30 @@
+name: Refresh portfolio prices
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: portfolio-price-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger protected refresh endpoint
+        env:
+          SERVICE_URL: ${{ secrets.SERVICE_URL }}
+          SCHEDULER_TOKEN: ${{ secrets.SCHEDULER_TOKEN }}
+        run: |
+          test -n "$SERVICE_URL"
+          test -n "$SCHEDULER_TOKEN"
+          curl --silent --show-error --max-time 180 \
+            --request POST \
+            --header "X-Scheduler-Token: $SCHEDULER_TOKEN" \
+            "$SERVICE_URL/tasks/refresh"
