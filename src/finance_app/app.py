@@ -3,9 +3,10 @@ from __future__ import annotations
 import atexit
 from datetime import datetime, timezone
 from pathlib import Path
+import secrets
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from flask import Flask, flash, jsonify, redirect, render_template, url_for
+from flask import Flask, Response, abort, flash, jsonify, redirect, render_template, request, url_for
 
 from .config import get_settings
 from .db import init_db
@@ -41,6 +42,25 @@ def create_app(*, start_scheduler: bool = True) -> Flask:
         scheduler.start()
         atexit.register(lambda: scheduler.shutdown(wait=False))
 
+    @app.before_request
+    def require_dashboard_login():
+        if request.path in {"/health", "/tasks/refresh"} or not settings.web_auth_configured:
+            return None
+        auth = request.authorization
+        username_ok = bool(auth) and secrets.compare_digest(
+            auth.username or "", settings.web_auth_username
+        )
+        password_ok = bool(auth) and secrets.compare_digest(
+            auth.password or "", settings.web_auth_password
+        )
+        if username_ok and password_ok:
+            return None
+        return Response(
+            "Authentication required",
+            401,
+            {"WWW-Authenticate": 'Basic realm="Portfolio Pulse"'},
+        )
+
     @app.get("/")
     def dashboard():
         return render_template("dashboard.html", data=service.dashboard_data())
@@ -75,5 +95,15 @@ def create_app(*, start_scheduler: bool = True) -> Flask:
     @app.get("/health")
     def health():
         return jsonify({"ok": True, "stocks": service.dashboard_data()["stock_count"]})
+
+    @app.post("/tasks/refresh")
+    def scheduled_refresh():
+        supplied_token = request.headers.get("X-Scheduler-Token", "")
+        if not settings.scheduler_token or not secrets.compare_digest(
+            supplied_token, settings.scheduler_token
+        ):
+            abort(403)
+        result = service.run_cycle()
+        return jsonify(result), 200 if result.get("ok") else 503
 
     return app

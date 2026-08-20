@@ -63,6 +63,19 @@ Copy `portfolio.example.csv` to `portfolio.csv`, then replace the sample rows wi
 PYTHONPATH=src pytest -q
 ```
 
+## Google Cloud Run
+
+The included `Dockerfile` runs the app with Gunicorn on Cloud Run's assigned
+port. Set `WEB_AUTH_USERNAME` and `WEB_AUTH_PASSWORD` to protect the dashboard.
+Hosted instances disable the in-process scheduler; call `POST /tasks/refresh`
+every five minutes with the `X-Scheduler-Token` header instead. Keep
+`portfolio.csv` and all credentials in Google Secret Manager, not in the
+container image or Git repository.
+
+macOS Messages is unavailable in Cloud Run's Linux environment. Use Twilio for
+hosted SMS alerts by setting `NOTIFICATION_PROVIDER=twilio` and supplying the
+Twilio credentials through Secret Manager.
+
 ## Data note
 
 This app uses the third-party `yfinance` package to access publicly available Yahoo Finance data for personal use. Quotes may be delayed or temporarily unavailable and should not be treated as an execution-grade market-data feed.

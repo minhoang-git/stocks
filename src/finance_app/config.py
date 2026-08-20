@@ -44,6 +44,9 @@ class Settings:
     twilio_auth_token: str
     twilio_from_number: str
     alert_to_number: str
+    web_auth_username: str = ""
+    web_auth_password: str = ""
+    scheduler_token: str = ""
 
     @property
     def database_abspath(self) -> str:
@@ -84,6 +87,10 @@ class Settings:
     def phone_notifications_configured(self) -> bool:
         return self.active_notification_provider is not None
 
+    @property
+    def web_auth_configured(self) -> bool:
+        return bool(self.web_auth_username and self.web_auth_password)
+
 
 def get_settings() -> Settings:
     return Settings(
@@ -99,4 +106,7 @@ def get_settings() -> Settings:
         twilio_auth_token=os.getenv("TWILIO_AUTH_TOKEN", "").strip(),
         twilio_from_number=os.getenv("TWILIO_FROM_NUMBER", "").strip(),
         alert_to_number=os.getenv("ALERT_TO_NUMBER", "").strip(),
+        web_auth_username=os.getenv("WEB_AUTH_USERNAME", "").strip(),
+        web_auth_password=os.getenv("WEB_AUTH_PASSWORD", ""),
+        scheduler_token=os.getenv("SCHEDULER_TOKEN", ""),
     )

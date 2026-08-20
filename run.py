@@ -71,6 +71,10 @@ def _bootstrap_local_venv() -> None:
 
 
 def _should_start_scheduler() -> bool:
+    if os.getenv("K_SERVICE") or os.getenv("DISABLE_BACKGROUND_SCHEDULER", "").lower() in {
+        "1", "true", "yes", "on",
+    }:
+        return False
     if __name__ != "__main__":
         return True
     return os.getenv("WERKZEUG_RUN_MAIN") == "true"
@@ -87,4 +91,8 @@ from finance_app.app import create_app
 app = create_app(start_scheduler=_should_start_scheduler())
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5001, debug=True)
+    app.run(
+        host=os.getenv("HOST", "127.0.0.1"),
+        port=int(os.getenv("PORT", "5001")),
+        debug=os.getenv("FLASK_DEBUG", "true").lower() in {"1", "true", "yes", "on"},
+    )

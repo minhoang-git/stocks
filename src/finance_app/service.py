@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import os
 from threading import Lock
 from typing import Any
 
@@ -159,6 +160,7 @@ class PortfolioMonitorService:
             "refresh_interval_minutes": self.settings.refresh_interval_minutes,
             "alert_cooldown_hours": self.settings.alert_cooldown_hours,
             "portfolio_filename": self.settings.portfolio_abspath.rsplit("/", 1)[-1],
+            "is_cloud_run": bool(os.getenv("K_SERVICE")),
         }
 
     def mark_notification_read(self, notification_id: int) -> None:
@@ -169,5 +171,5 @@ class PortfolioMonitorService:
 
     def send_test_message(self):
         return self.notifier.send_phone_message(
-            "Portfolio Pulse test: macOS Messages notifications are configured correctly."
+            f"Portfolio Pulse test: {self.notifier.provider_label} notifications are configured correctly."
         )
