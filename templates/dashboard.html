@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Live Yahoo Finance portfolio monitoring with three-month-low phone alerts.">
+    <title>Portfolio Pulse</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Portfolio Pulse home">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span>Portfolio Pulse</span>
+        </a>
+        <div class="topbar-actions">
+          <span class="source-pill"><span class="live-dot"></span> Yahoo Finance</span>
+          <form action="{{ url_for('refresh_now') }}" method="post">
+            <button class="button button-primary" type="submit">Refresh prices</button>
+          </form>
+        </div>
+      </header>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flash-stack" aria-live="polite">
+            {% for category, message in messages %}
+              <div class="flash flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      <main>
+        <section class="hero">
+          <div class="hero-copy">
+            <p class="eyebrow">PORTFOLIO MONITOR</p>
+            <h1>Know when a stock reaches its floor.</h1>
+            <p class="hero-subtitle">
+              Tracking {{ data.stock_count }} symbols from {{ data.portfolio_filename }}.
+              Prices refresh every {{ data.refresh_interval_minutes }} minutes and low alerts cool down for {{ data.alert_cooldown_hours|int }} hours.
+            </p>
+            <div class="run-status">
+              <span class="status-icon {{ 'status-warning' if data.error_count else 'status-good' }}"></span>
+              <span>
+                {% if data.latest_run %}
+                  {{ data.latest_run.summary }}
+                {% else %}
+                  Initial Yahoo Finance refresh is starting.
+                {% endif %}
+              </span>
+            </div>
+          </div>
+          <aside class="alert-setup {{ 'is-ready' if data.phone_notifications_configured else '' }}">
+            <div class="setup-icon" aria-hidden="true">{{ '✓' if data.phone_notifications_configured else '!' }}</div>
+            <div>
+              <p class="setup-label">PHONE ALERTS</p>
+              <h2>{{ data.notification_provider_label + ' is ready' if data.phone_notifications_configured else 'Connect phone alerts' }}</h2>
+              <p>
+                {% if data.notification_provider == 'mac_messages' %}
+                  New three-month-low events will be sent through the Messages app on this Mac.
+                {% elif data.notification_provider == 'twilio' %}
+                  Twilio is configured. New three-month-low events will be texted automatically.
+                {% else %}
+                  Enable macOS Messages or configure Twilio in <code>.env</code>. Low events are still saved below.
+                {% endif %}
+              </p>
+              {% if data.phone_notifications_configured %}
+                <form action="{{ url_for('test_message') }}" method="post">
+                  <button class="text-button" type="submit">Send a test message →</button>
+                </form>
+              {% else %}
+                <a class="text-button" href="#sms-setup">View setup instructions →</a>
+              {% endif %}
+            </div>
+          </aside>
+        </section>
+
+        <section class="metric-grid" aria-label="Portfolio summary">
+          <article class="metric-card">
+            <span class="metric-label">WATCHLIST</span>
+            <strong>{{ data.stock_count }}</strong>
+            <small>symbols monitored</small>
+          </article>
+          <article class="metric-card metric-alert">
+            <span class="metric-label">AT 3-MONTH LOW</span>
+            <strong>{{ data.low_count }}</strong>
+            <small>{{ 'needs attention' if data.low_count else 'none detected' }}</small>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">TRACKED HOLDINGS</span>
+            <strong>${{ '{:,.0f}'.format(data.tracked_value) }}</strong>
+            <small>rows with quantities</small>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">UNREALIZED P&amp;L</span>
+            {% if data.tracked_pnl is not none %}
+              <strong class="{{ 'positive' if data.tracked_pnl >= 0 else 'negative' }}">{{ '+' if data.tracked_pnl >= 0 else '' }}${{ '{:,.0f}'.format(data.tracked_pnl) }}</strong>
+              <small>versus CSV cost basis</small>
+            {% else %}
+              <strong>—</strong>
+              <small>add purchase data</small>
+            {% endif %}
+          </article>
+        </section>
+
+        <section class="panel watchlist-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">LIVE WATCHLIST</p>
+              <h2>Distance from the three-month low</h2>
+            </div>
+            <div class="table-tools">
+              <label class="search-box">
+                <span aria-hidden="true">⌕</span>
+                <input id="stock-search" type="search" placeholder="Search symbol" autocomplete="off">
+              </label>
+              <select id="stock-filter" aria-label="Filter stocks">
+                <option value="all">All stocks</option>
+                <option value="low">At 3-month low</option>
+                <option value="owned">Owned positions</option>
+                <option value="error">Data errors</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table id="stock-table">
+              <thead>
+                <tr>
+                  <th>Symbol</th>
+                  <th>Last price</th>
+                  <th>Today</th>
+                  <th>3-month low</th>
+                  <th>Distance</th>
+                  <th>Position</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for stock in data.stocks %}
+                  <tr data-symbol="{{ stock.symbol }}" data-state="{{ 'low' if stock.at_three_month_low else ('error' if stock.status == 'error' else 'normal') }}" data-owned="{{ 'true' if stock.quantity else 'false' }}">
+                    <td data-label="Symbol">
+                      <div class="symbol-cell">
+                        <span class="symbol-badge">{{ stock.symbol[:2] }}</span>
+                        <div><strong>{{ stock.symbol }}</strong><small>{{ stock.currency or 'USD' }}</small></div>
+                      </div>
+                    </td>
+                    <td data-label="Last price">
+                      {% if stock.price is not none %}
+                        <strong class="mono">${{ '{:,.2f}'.format(stock.price) }}</strong>
+                        <small class="block timestamp" data-time="{{ stock.market_time or stock.updated_at }}">{{ stock.market_time or stock.updated_at }}</small>
+                      {% else %}<span class="muted">Unavailable</span>{% endif %}
+                    </td>
+                    <td data-label="Today">
+                      {% if stock.day_change_pct is not none %}
+                        <span class="change {{ 'positive' if stock.day_change_pct >= 0 else 'negative' }}">{{ '+' if stock.day_change_pct >= 0 else '' }}{{ '%.2f'|format(stock.day_change_pct * 100) }}%</span>
+                        <small class="block mono">{{ '+' if stock.day_change is not none and stock.day_change >= 0 else '' }}${{ '%.2f'|format(stock.day_change or 0) }}</small>
+                      {% else %}<span class="muted">—</span>{% endif %}
+                    </td>
+                    <td data-label="3-month low">
+                      {% if stock.three_month_low is not none %}
+                        <strong class="mono">${{ '{:,.2f}'.format(stock.three_month_low) }}</strong>
+                        <small class="block">{{ stock.low_date }}</small>
+                      {% else %}<span class="muted">—</span>{% endif %}
+                    </td>
+                    <td data-label="Distance">
+                      {% if stock.distance_to_low_pct is not none %}
+                        <div class="distance-cell">
+                          <span class="mono">{{ '%.1f'|format(stock.distance_to_low_pct * 100) }}%</span>
+                          <span class="distance-track"><i style="width: {{ [stock.distance_to_low_pct * 500, 100]|min }}%"></i></span>
+                        </div>
+                      {% else %}<span class="muted">—</span>{% endif %}
+                    </td>
+                    <td data-label="Position">
+                      {% if stock.quantity %}
+                        <strong class="mono">{{ '{:,.0f}'.format(stock.quantity) }} shares</strong>
+                        {% if stock.unrealized_pnl is not none %}
+                          <small class="block {{ 'positive' if stock.unrealized_pnl >= 0 else 'negative' }}">{{ '+' if stock.unrealized_pnl >= 0 else '' }}${{ '{:,.0f}'.format(stock.unrealized_pnl) }}</small>
+                        {% endif %}
+                      {% else %}<span class="muted">Watch only</span>{% endif %}
+                    </td>
+                    <td data-label="Status">
+                      {% if stock.at_three_month_low %}
+                        <span class="status-tag status-tag-low">● At low</span>
+                      {% elif stock.status == 'error' %}
+                        <span class="status-tag status-tag-error" title="{{ stock.error }}">Data issue</span>
+                      {% elif stock.status == 'csv_snapshot' %}
+                        <span class="status-tag status-tag-waiting">Waiting</span>
+                      {% else %}
+                        <span class="status-tag status-tag-normal">Monitoring</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+            <p id="no-results" class="empty-state" hidden>No stocks match this view.</p>
+          </div>
+        </section>
+
+        <div class="lower-grid">
+          <section class="panel alert-panel">
+            <div class="panel-heading compact">
+              <div>
+                <p class="eyebrow">ALERT CENTER</p>
+                <h2>Recent low events</h2>
+              </div>
+              <span class="count-pill">{{ data.alerts|length }}</span>
+            </div>
+            {% if data.alerts %}
+              <div class="event-list">
+                {% for alert in data.alerts[:8] %}
+                  <article class="event-item">
+                    <span class="event-symbol">{{ alert.symbol }}</span>
+                    <div>
+                      <strong>${{ '{:,.2f}'.format(alert.trigger_price) }} session low</strong>
+                      <small class="timestamp" data-time="{{ alert.created_at }}">{{ alert.created_at }}</small>
+                    </div>
+                    <span class="delivery-tag delivery-{{ alert.sms_status }}">{{ alert.sms_status.replace('_', ' ') }}</span>
+                  </article>
+                {% endfor %}
+              </div>
+            {% else %}
+              <div class="empty-alerts"><span>◎</span><p>No low alerts yet. The monitor is watching.</p></div>
+            {% endif %}
+          </section>
+
+          <section class="panel setup-panel" id="sms-setup">
+            <p class="eyebrow">MESSAGES SETUP</p>
+            <h2>macOS Messages notifications</h2>
+            <p class="setup-intro">The app can send alerts through the Messages account already signed in on this Mac—no Twilio credentials required.</p>
+            <ol class="setup-steps">
+              <li><span>1</span><div>Sign in to iMessage in the macOS Messages app.</div></li>
+              <li><span>2</span><div>Set <code>NOTIFICATION_PROVIDER=mac_messages</code> and your <code>ALERT_TO_NUMBER</code>.</div></li>
+              <li><span>3</span><div>When macOS asks whether the app may control Messages, choose <strong>Allow</strong>.</div></li>
+              <li><span>4</span><div>Keep Portfolio Pulse running so scheduled low alerts can be delivered.</div></li>
+            </ol>
+          </section>
+        </div>
+      </main>
+
+      <footer>
+        <span>Portfolio Pulse</span>
+        <span>Personal monitoring tool · Yahoo Finance data may be delayed</span>
+      </footer>
+    </div>
+
+    <script>
+      (() => {
+        const search = document.getElementById('stock-search');
+        const filter = document.getElementById('stock-filter');
+        const rows = [...document.querySelectorAll('#stock-table tbody tr')];
+        const empty = document.getElementById('no-results');
+
+        const updateRows = () => {
+          const query = search.value.trim().toUpperCase();
+          const mode = filter.value;
+          let visible = 0;
+          for (const row of rows) {
+            const symbolMatch = row.dataset.symbol.includes(query);
+            const stateMatch = mode === 'all'
+              || (mode === 'owned' && row.dataset.owned === 'true')
+              || row.dataset.state === mode;
+            row.hidden = !(symbolMatch && stateMatch);
+            if (!row.hidden) visible += 1;
+          }
+          empty.hidden = visible !== 0;
+        };
+
+        const formatTimes = () => {
+          document.querySelectorAll('[data-time]').forEach((el) => {
+            const value = el.dataset.time;
+            if (!value) return;
+            const date = new Date(value);
+            if (!Number.isNaN(date.valueOf())) {
+              el.textContent = new Intl.DateTimeFormat(undefined, {
+                month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+              }).format(date);
+            }
+          });
+        };
+
+        search.addEventListener('input', updateRows);
+        filter.addEventListener('change', updateRows);
+        formatTimes();
+
+        let lastRunId = {{ data.latest_run.id if data.latest_run else 'null' }};
+        setInterval(async () => {
+          try {
+            const response = await fetch('/api/state', { cache: 'no-store' });
+            if (!response.ok) return;
+            const state = await response.json();
+            if (state.latest_run && state.latest_run.id !== lastRunId && state.latest_run.status !== 'running') {
+              window.location.reload();
+            }
+          } catch (_) {
+            // The next poll will retry automatically.
+          }
+        }, 30000);
+      })();
+    </script>
+  </body>
+</html>
