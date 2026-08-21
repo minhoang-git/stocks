@@ -27,6 +27,10 @@ class NotificationService:
         return self.settings.phone_notifications_configured
 
     @property
+    def notifications_configured(self) -> bool:
+        return self.settings.notifications_configured
+
+    @property
     def provider(self) -> str | None:
         return self.settings.active_notification_provider
 
@@ -35,6 +39,7 @@ class NotificationService:
         return {
             "mac_messages": "macOS Messages",
             "twilio": "Twilio SMS",
+            "google_chat": "Google Chat",
         }.get(self.provider, "Not configured")
 
     def add_in_app(self, title: str, message: str, level: str = "info") -> int:
@@ -98,12 +103,32 @@ end run
             return NotifyResult(False, "failed", f"macOS Messages could not send: {detail}")
         return NotifyResult(True, "sent", "Message accepted by macOS Messages")
 
+    def _send_google_chat(self, body: str) -> NotifyResult:
+        if not self.settings.google_chat_configured:
+            return NotifyResult(False, "not_configured", "Google Chat webhook is not configured")
+
+        recipient = self.settings.google_chat_recipient_email
+        chat_body = f"Portfolio Pulse alert for {recipient}\n{body}" if recipient else body
+        try:
+            response = requests.post(
+                self.settings.google_chat_webhook_url,
+                json={"text": chat_body},
+                timeout=15,
+            )
+            response.raise_for_status()
+            detail = f" for {recipient}" if recipient else ""
+            return NotifyResult(True, "sent", f"Message accepted by Google Chat{detail}")
+        except requests.RequestException as exc:
+            return NotifyResult(False, "failed", f"Google Chat could not send: {exc}")
+
     def send_phone_message(self, body: str) -> NotifyResult:
         if self.provider == "mac_messages":
             return self._send_mac_messages(body)
         if self.provider == "twilio":
             return self._send_twilio(body)
-        return NotifyResult(False, "not_configured", "No phone notification provider is configured")
+        if self.provider == "google_chat":
+            return self._send_google_chat(body)
+        return NotifyResult(False, "not_configured", "No notification provider is configured")
 
     def send_low_alert(self, *, symbol: str, current_price: float, session_low: float, low: float) -> NotifyResult:
         message = (

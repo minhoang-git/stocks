@@ -31,6 +31,7 @@ class FakeMarketData:
 
 class FakeNotifier:
     phone_notifications_configured = True
+    notifications_configured = True
     provider = "mac_messages"
     provider_label = "macOS Messages"
 

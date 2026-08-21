@@ -195,6 +195,7 @@ class PortfolioMonitorService:
             "notifications": db.list_notifications(self.db_path, limit=40),
             "unread_count": db.unread_notification_count(self.db_path),
             "phone_notifications_configured": self.notifier.phone_notifications_configured,
+            "notifications_configured": self.notifier.notifications_configured,
             "notification_provider": self.notifier.provider,
             "notification_provider_label": self.notifier.provider_label,
             "refresh_interval_minutes": self.settings.refresh_interval_minutes,

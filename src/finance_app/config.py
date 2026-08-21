@@ -45,6 +45,8 @@ class Settings:
     twilio_auth_token: str
     twilio_from_number: str
     alert_to_number: str
+    google_chat_webhook_url: str = ""
+    google_chat_recipient_email: str = ""
     web_auth_username: str = ""
     web_auth_password: str = ""
     web_auth_users: str = ""
@@ -75,11 +77,19 @@ class Settings:
         return self.mac_messages_enabled and bool(self.alert_to_number)
 
     @property
+    def google_chat_configured(self) -> bool:
+        return bool(self.google_chat_webhook_url)
+
+    @property
     def active_notification_provider(self) -> str | None:
         if self.notification_provider == "mac_messages":
             return "mac_messages" if self.mac_messages_configured else None
         if self.notification_provider == "twilio":
             return "twilio" if self.twilio_configured else None
+        if self.notification_provider == "google_chat":
+            return "google_chat" if self.google_chat_configured else None
+        if self.google_chat_configured:
+            return "google_chat"
         if self.twilio_configured:
             return "twilio"
         if self.mac_messages_configured:
@@ -88,6 +98,10 @@ class Settings:
 
     @property
     def phone_notifications_configured(self) -> bool:
+        return self.active_notification_provider is not None
+
+    @property
+    def notifications_configured(self) -> bool:
         return self.active_notification_provider is not None
 
     @property
@@ -130,6 +144,8 @@ def get_settings() -> Settings:
         twilio_auth_token=os.getenv("TWILIO_AUTH_TOKEN", "").strip(),
         twilio_from_number=os.getenv("TWILIO_FROM_NUMBER", "").strip(),
         alert_to_number=os.getenv("ALERT_TO_NUMBER", "").strip(),
+        google_chat_webhook_url=os.getenv("GOOGLE_CHAT_WEBHOOK_URL", "").strip(),
+        google_chat_recipient_email=os.getenv("GOOGLE_CHAT_RECIPIENT_EMAIL", "").strip(),
         web_auth_username=os.getenv("WEB_AUTH_USERNAME", "").strip(),
         web_auth_password=os.getenv("WEB_AUTH_PASSWORD", ""),
         web_auth_users=os.getenv("WEB_AUTH_USERS", ""),

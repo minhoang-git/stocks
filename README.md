@@ -9,7 +9,7 @@ A local Flask dashboard that monitors every ticker in `portfolio.csv`, refreshes
 - Polls Yahoo Finance every five minutes by default.
 - Shows last price, daily move, rolling three- and six-month lows, three-day volume expansion, distance from the three-month low, and tracked position P&L.
 - Creates an in-app alert when a symbol reaches its rolling three-month low.
-- Sends the same alert through macOS Messages, with Twilio available as an alternative.
+- Sends the same alert to Google Chat, macOS Messages, or Twilio.
 - Applies a per-symbol cooldown (24 hours by default) to prevent repeated messages for the same prolonged low.
 - Keeps individual ticker failures visible without stopping the rest of the watchlist.
 
@@ -43,6 +43,23 @@ Restart Portfolio Pulse and use **Send a test message** in the dashboard. The fi
 ### Optional Twilio alternative
 
 To use Twilio instead, set `NOTIFICATION_PROVIDER=twilio` and configure `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_FROM_NUMBER` in `.env`.
+
+### Google Chat notifications
+
+Google Chat incoming webhooks post to a Space rather than directly to an email
+address. They require a Google Workspace account; Google disables webhook
+creation for personal `@gmail.com` accounts. With a supported account, create a
+private Space in Google Chat, open **Apps & integrations**, add an incoming
+webhook, and keep the generated URL secret. Then configure:
+
+```dotenv
+NOTIFICATION_PROVIDER=google_chat
+GOOGLE_CHAT_WEBHOOK_URL=https://chat.googleapis.com/v1/spaces/...
+GOOGLE_CHAT_RECIPIENT_EMAIL=your-address@gmail.com
+```
+
+The recipient email is included in the alert for clarity; the private Space and
+its webhook URL control where Google Chat delivers the message.
 
 ## Low-price rule
 
@@ -78,9 +95,9 @@ every five minutes with the `X-Scheduler-Token` header instead. Keep
 `portfolio.csv` and all credentials in Google Secret Manager, not in the
 container image or Git repository.
 
-macOS Messages is unavailable in Cloud Run's Linux environment. Use Twilio for
-hosted SMS alerts by setting `NOTIFICATION_PROVIDER=twilio` and supplying the
-Twilio credentials through Secret Manager.
+macOS Messages is unavailable in Cloud Run's Linux environment. Use Google Chat
+for hosted alerts by setting `NOTIFICATION_PROVIDER=google_chat` and storing the
+webhook URL in Secret Manager. Twilio remains available as an alternative.
 
 ## Free Render deployment
 

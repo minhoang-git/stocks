@@ -55,21 +55,23 @@
               </span>
             </div>
           </div>
-          <aside class="alert-setup {{ 'is-ready' if data.phone_notifications_configured else '' }}">
-            <div class="setup-icon" aria-hidden="true">{{ '✓' if data.phone_notifications_configured else '!' }}</div>
+          <aside class="alert-setup {{ 'is-ready' if data.notifications_configured else '' }}">
+            <div class="setup-icon" aria-hidden="true">{{ '✓' if data.notifications_configured else '!' }}</div>
             <div>
-              <p class="setup-label">PHONE ALERTS</p>
-              <h2>{{ data.notification_provider_label + ' is ready' if data.phone_notifications_configured else 'Connect phone alerts' }}</h2>
+              <p class="setup-label">ALERT DELIVERY</p>
+              <h2>{{ data.notification_provider_label + ' is ready' if data.notifications_configured else 'Connect notifications' }}</h2>
               <p>
                 {% if data.notification_provider == 'mac_messages' %}
                   New three-month-low events will be sent through the Messages app on this Mac.
                 {% elif data.notification_provider == 'twilio' %}
                   Twilio is configured. New three-month-low events will be texted automatically.
+                {% elif data.notification_provider == 'google_chat' %}
+                  New three-month-low events will be posted to your private Google Chat Space.
                 {% else %}
-                  Enable macOS Messages or configure Twilio in <code>.env</code>. Low events are still saved below.
+                  Configure Google Chat, macOS Messages, or Twilio. Low events are still saved below.
                 {% endif %}
               </p>
-              {% if data.phone_notifications_configured %}
+              {% if data.notifications_configured %}
                 <form action="{{ url_for('test_message') }}" method="post">
                   <button class="text-button" type="submit">Send a test message →</button>
                 </form>
@@ -250,16 +252,17 @@
           </section>
 
           <section class="panel setup-panel" id="sms-setup">
-            <p class="eyebrow">MESSAGES SETUP</p>
-            {% if data.is_cloud_run %}
-              <h2>Cloud SMS notifications</h2>
-              <p class="setup-intro">Cloud hosting cannot access the Messages app on your Mac. Configure Twilio to deliver hosted alerts to your phone.</p>
+            <p class="eyebrow">NOTIFICATION SETUP</p>
+            {% if data.notification_provider == 'google_chat' or data.is_cloud_run %}
+              <h2>Google Chat notifications</h2>
+              <p class="setup-intro">Portfolio Pulse can post hosted alerts to a private Google Chat Space that you can open from Gmail or the Chat app.</p>
               <ol class="setup-steps">
-                <li><span>1</span><div>Create or use a Twilio account with an SMS-capable sender number.</div></li>
-                <li><span>2</span><div>Store the Twilio account SID, auth token, and sender number as private hosting environment variables.</div></li>
-                <li><span>3</span><div>Set <code>NOTIFICATION_PROVIDER=twilio</code> and your <code>ALERT_TO_NUMBER</code>.</div></li>
+                <li><span>1</span><div>Using a Google Workspace account, create a private Google Chat Space and add an incoming webhook from <strong>Apps &amp; integrations</strong>.</div></li>
+                <li><span>2</span><div>Store the webhook URL as the private <code>GOOGLE_CHAT_WEBHOOK_URL</code> hosting variable.</div></li>
+                <li><span>3</span><div>Set <code>NOTIFICATION_PROVIDER=google_chat</code> and optionally <code>GOOGLE_CHAT_RECIPIENT_EMAIL</code>.</div></li>
                 <li><span>4</span><div>Use <strong>Send a test message</strong> after the service is updated.</div></li>
               </ol>
+              <p class="setup-intro">Google does not enable incoming webhooks for personal <code>@gmail.com</code> accounts.</p>
             {% else %}
               <h2>macOS Messages notifications</h2>
               <p class="setup-intro">The app can send alerts through the Messages account already signed in on this Mac—no Twilio credentials required.</p>

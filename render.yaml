@@ -25,7 +25,11 @@ services:
       - key: DISABLE_BACKGROUND_SCHEDULER
         value: "true"
       - key: NOTIFICATION_PROVIDER
-        value: twilio
+        value: google_chat
+      - key: GOOGLE_CHAT_WEBHOOK_URL
+        sync: false
+      - key: GOOGLE_CHAT_RECIPIENT_EMAIL
+        sync: false
       - key: MAC_MESSAGES_ENABLED
         value: "false"
       - key: TWILIO_ACCOUNT_SID
