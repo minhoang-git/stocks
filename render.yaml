@@ -12,6 +12,8 @@ services:
         value: portfolio
       - key: WEB_AUTH_PASSWORD
         sync: false
+      - key: WEB_AUTH_USERS
+        sync: false
       - key: SECRET_KEY
         generateValue: true
       - key: SCHEDULER_TOKEN

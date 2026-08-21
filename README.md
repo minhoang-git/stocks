@@ -5,8 +5,9 @@ A local Flask dashboard that monitors every ticker in `portfolio.csv`, refreshes
 ## What it does
 
 - Imports symbols, purchase prices, and quantities from the supplied CSV.
+- Pins Nasdaq Composite, Dow 30, S&P 500, VIX, Bitcoin, and WTI crude oil above the portfolio.
 - Polls Yahoo Finance every five minutes by default.
-- Shows last price, daily move, rolling three-month low, distance from that low, and tracked position P&L.
+- Shows last price, daily move, rolling three- and six-month lows, three-day volume expansion, distance from the three-month low, and tracked position P&L.
 - Creates an in-app alert when a symbol reaches its rolling three-month low.
 - Sends the same alert through macOS Messages, with Twilio available as an alternative.
 - Applies a per-symbol cooldown (24 hours by default) to prevent repeated messages for the same prolonged low.
@@ -52,6 +53,11 @@ current session low <= rolling three-month low × (1 + LOW_TOLERANCE_PCT)
 ```
 
 The default tolerance is zero, so only an actual rolling low qualifies. The notification is sent at most once per symbol during `ALERT_COOLDOWN_HOURS`.
+
+The **3D volume spike** value is the average volume of the latest three
+completed trading sessions divided by the average of the preceding 20
+sessions. A value of `1.50×` means the recent three-day average is 50% higher
+than that baseline.
 
 ## Change the portfolio
 
@@ -101,6 +107,11 @@ Vercel's function filesystem is ephemeral. The app stores SQLite data in
 `/tmp`, so dashboard history and alert cooldown records can reset when Vercel
 recycles an instance. Use a persistent database before relying on this setup
 for high-frequency or production alerting.
+
+Hosted dashboards can accept additional Basic Auth users through
+`WEB_AUTH_USERS`, supplied as a private JSON object such as
+`{"analyst":"use-a-strong-password"}`. The original
+`WEB_AUTH_USERNAME`/`WEB_AUTH_PASSWORD` login remains supported.
 
 ## Data note
 

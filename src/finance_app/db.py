@@ -25,6 +25,10 @@ CREATE TABLE IF NOT EXISTS quote_snapshots (
     session_low REAL,
     three_month_low REAL,
     low_date TEXT,
+    six_month_low REAL,
+    six_month_low_date TEXT,
+    three_day_avg_volume REAL,
+    volume_spike_ratio REAL,
     distance_to_low_pct REAL,
     at_three_month_low INTEGER NOT NULL DEFAULT 0,
     market_time TEXT,
@@ -85,6 +89,21 @@ def connect(db_path: str):
 def init_db(db_path: str) -> None:
     with connect(db_path) as conn:
         conn.executescript(SCHEMA_SQL)
+        existing_columns = {
+            row["name"] for row in conn.execute("PRAGMA table_info(quote_snapshots)").fetchall()
+        }
+        migrations = {
+            "six_month_low": "REAL",
+            "six_month_low_date": "TEXT",
+            "three_day_avg_volume": "REAL",
+            "volume_spike_ratio": "REAL",
+        }
+        for column, column_type in migrations.items():
+            if column not in existing_columns:
+                conn.execute(
+                    f"ALTER TABLE quote_snapshots ADD COLUMN {column} {column_type}"
+                )
+        conn.execute("PRAGMA optimize")
 
 
 def fetch_all(db_path: str, query: str, params: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
@@ -155,9 +174,10 @@ def upsert_quote(db_path: str, quote: dict[str, Any]) -> None:
         """
         INSERT INTO quote_snapshots (
             symbol, price, previous_close, day_change, day_change_pct, session_low,
-            three_month_low, low_date, distance_to_low_pct, at_three_month_low,
-            market_time, currency, status, error, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'live', NULL, ?)
+            three_month_low, low_date, six_month_low, six_month_low_date,
+            three_day_avg_volume, volume_spike_ratio, distance_to_low_pct,
+            at_three_month_low, market_time, currency, status, error, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'live', NULL, ?)
         ON CONFLICT(symbol) DO UPDATE SET
             price = excluded.price,
             previous_close = excluded.previous_close,
@@ -166,6 +186,10 @@ def upsert_quote(db_path: str, quote: dict[str, Any]) -> None:
             session_low = excluded.session_low,
             three_month_low = excluded.three_month_low,
             low_date = excluded.low_date,
+            six_month_low = excluded.six_month_low,
+            six_month_low_date = excluded.six_month_low_date,
+            three_day_avg_volume = excluded.three_day_avg_volume,
+            volume_spike_ratio = excluded.volume_spike_ratio,
             distance_to_low_pct = excluded.distance_to_low_pct,
             at_three_month_low = excluded.at_three_month_low,
             market_time = excluded.market_time,
@@ -177,7 +201,9 @@ def upsert_quote(db_path: str, quote: dict[str, Any]) -> None:
         (
             quote["symbol"], quote["price"], quote["previous_close"], quote["day_change"],
             quote["day_change_pct"], quote["session_low"], quote["three_month_low"],
-            quote["low_date"], quote["distance_to_low_pct"],
+            quote["low_date"], quote.get("six_month_low"), quote.get("six_month_low_date"),
+            quote.get("three_day_avg_volume"), quote.get("volume_spike_ratio"),
+            quote["distance_to_low_pct"],
             1 if quote["at_three_month_low"] else 0, quote["market_time"],
             quote.get("currency", "USD"), utc_now_iso(),
         ),
@@ -203,6 +229,8 @@ def portfolio_rows(db_path: str) -> list[dict[str, Any]]:
         """
         SELECT w.*, q.price, q.previous_close, q.day_change, q.day_change_pct,
                q.session_low, q.three_month_low, q.low_date, q.distance_to_low_pct,
+               q.six_month_low, q.six_month_low_date, q.three_day_avg_volume,
+               q.volume_spike_ratio,
                q.at_three_month_low, q.market_time, q.currency, q.status,
                q.error, q.updated_at
         FROM watchlist w

@@ -12,6 +12,17 @@ from .notifications import NotificationService
 from .portfolio import load_portfolio, load_portfolio_text
 
 
+MARKET_BENCHMARKS = (
+    ("^IXIC", "Nasdaq Composite"),
+    ("^DJI", "Dow 30"),
+    ("^GSPC", "S&P 500"),
+    ("^VIX", "VIX"),
+    ("BTC-USD", "Bitcoin"),
+    ("CL=F", "Crude Oil WTI"),
+)
+BENCHMARK_LABELS = dict(MARKET_BENCHMARKS)
+
+
 class PortfolioMonitorService:
     def __init__(
         self,
@@ -33,7 +44,21 @@ class PortfolioMonitorService:
             if self.settings.portfolio_csv
             else load_portfolio(self.settings.portfolio_abspath)
         )
-        entries = [entry.as_dict() for entry in portfolio]
+        portfolio_entries = [entry.as_dict() for entry in portfolio]
+        benchmark_entries = [
+            {
+                "symbol": symbol,
+                "reference_price": None,
+                "trade_date": None,
+                "purchase_price": None,
+                "quantity": None,
+            }
+            for symbol, _ in MARKET_BENCHMARKS
+        ]
+        benchmark_symbols = set(BENCHMARK_LABELS)
+        entries = benchmark_entries + [
+            entry for entry in portfolio_entries if entry["symbol"] not in benchmark_symbols
+        ]
         db.sync_watchlist(self.db_path, entries)
         db.seed_reference_quotes(self.db_path, entries)
         return entries
@@ -132,6 +157,8 @@ class PortfolioMonitorService:
         tracked_value = 0.0
         cost_basis = 0.0
         for row in rows:
+            row["is_benchmark"] = row["symbol"] in BENCHMARK_LABELS
+            row["display_name"] = BENCHMARK_LABELS.get(row["symbol"], row["symbol"])
             price = row.get("price")
             quantity = row.get("quantity")
             purchase_price = row.get("purchase_price")
@@ -145,6 +172,14 @@ class PortfolioMonitorService:
                 tracked_value += row["holding_value"]
             if purchase_price is not None and quantity:
                 cost_basis += purchase_price * quantity
+
+        benchmark_order = {symbol: index for index, (symbol, _) in enumerate(MARKET_BENCHMARKS)}
+        rows.sort(
+            key=lambda row: (
+                0 if row["is_benchmark"] else 1,
+                benchmark_order.get(row["symbol"], 0),
+            )
+        )
 
         latest_run = db.latest_monitor_run(self.db_path)
         return {

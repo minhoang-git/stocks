@@ -10,7 +10,8 @@ from finance_app.service import PortfolioMonitorService
 
 class FakeMarketData:
     def fetch_quotes(self, symbols, *, tolerance_pct=0.0):
-        symbol = list(symbols)[0]
+        symbols = list(symbols)
+        symbol = "TEST" if "TEST" in symbols else symbols[0]
         return {
             symbol: MarketQuote(
                 symbol=symbol,
@@ -97,3 +98,20 @@ def test_zero_cooldown_allows_a_new_alert(tmp_path: Path):
     service.run_cycle()
 
     assert len(notifier.sent) == 2
+
+
+def test_market_benchmarks_are_added_and_pinned_in_requested_order(tmp_path: Path):
+    csv_file = tmp_path / "portfolio.csv"
+    csv_file.write_text("Symbol\nTEST\n", encoding="utf-8")
+    settings = _settings(tmp_path, csv_file)
+    db.init_db(settings.database_abspath)
+    service = PortfolioMonitorService(
+        settings,
+        market_data=FakeMarketData(),
+        notifier=FakeNotifier(),
+    )
+
+    symbols = [row["symbol"] for row in service.dashboard_data()["stocks"]]
+
+    assert symbols[:6] == ["^IXIC", "^DJI", "^GSPC", "^VIX", "BTC-USD", "CL=F"]
+    assert symbols[6:] == ["TEST"]

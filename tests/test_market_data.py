@@ -41,3 +41,33 @@ def test_build_quote_respects_near_low_tolerance():
     quote = build_quote("TEST", intraday, daily, tolerance_pct=0.005)
 
     assert quote.at_three_month_low is True
+
+
+def test_build_quote_calculates_six_month_support_and_three_day_volume_spike():
+    daily_index = pd.date_range("2026-02-02", periods=140, freq="B")
+    daily_lows = [70.0, *([95.0] * 138), 90.0]
+    daily_volumes = [100.0] * 137 + [200.0, 200.0, 200.0]
+    daily = pd.DataFrame(
+        {
+            "Close": [110.0] * 140,
+            "Low": daily_lows,
+            "Volume": daily_volumes,
+        },
+        index=daily_index,
+    )
+    intraday = pd.DataFrame(
+        {"Close": [112.0], "Low": [109.0]},
+        index=pd.to_datetime(["2026-08-21 10:00"]),
+    )
+
+    quote = build_quote(
+        "TEST",
+        intraday,
+        daily,
+        now=datetime(2026, 8, 21, 12, tzinfo=ZoneInfo("America/New_York")),
+    )
+
+    assert quote.six_month_low == 70.0
+    assert quote.three_month_low == 90.0
+    assert quote.three_day_avg_volume == 200.0
+    assert quote.volume_spike_ratio == 2.0

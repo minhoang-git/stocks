@@ -26,6 +26,10 @@ class MarketQuote:
     at_three_month_low: bool
     market_time: str
     currency: str = "USD"
+    six_month_low: float | None = None
+    six_month_low_date: str | None = None
+    three_day_avg_volume: float | None = None
+    volume_spike_ratio: float | None = None
 
     def as_dict(self) -> dict:
         return asdict(self)
@@ -64,12 +68,27 @@ def build_quote(
     if intraday.empty or "Close" not in intraday:
         raise ValueError("No intraday close price returned")
     if daily.empty or "Low" not in daily or "Close" not in daily:
-        raise ValueError("No three-month daily history returned")
+        raise ValueError("No six-month daily history returned")
 
     price = _last_valid(intraday["Close"])
     session_low = float(intraday["Low"].dropna().min()) if "Low" in intraday else price
 
-    lows = daily["Low"].dropna()
+    six_month_lows = daily["Low"].dropna()
+    six_month_low = float(six_month_lows.min())
+    six_month_low_index = six_month_lows.idxmin()
+    six_month_low_date = (
+        six_month_low_index.date().isoformat()
+        if hasattr(six_month_low_index, "date")
+        else str(six_month_low_index)
+    )
+
+    latest_daily_index = daily.index[-1]
+    if isinstance(daily.index, pd.DatetimeIndex):
+        three_month_start = latest_daily_index - pd.DateOffset(months=3)
+        three_month_daily = daily.loc[daily.index >= three_month_start]
+    else:
+        three_month_daily = daily.tail(66)
+    lows = three_month_daily["Low"].dropna()
     rolling_low = float(lows.min())
     low_index = lows.idxmin()
     low_date = low_index.date().isoformat() if hasattr(low_index, "date") else str(low_index)
@@ -87,6 +106,25 @@ def build_quote(
     day_change_pct = day_change / previous_close if previous_close else 0.0
     distance_to_low_pct = (price - rolling_low) / rolling_low if rolling_low else 0.0
     at_low = session_low <= rolling_low * (1.0 + tolerance_pct)
+
+    three_day_avg_volume = None
+    volume_spike_ratio = None
+    if "Volume" in daily:
+        completed_volumes = daily["Volume"].dropna()
+        if not completed_volumes.empty:
+            volume_last_index = completed_volumes.index[-1]
+            volume_last_date = (
+                volume_last_index.date() if hasattr(volume_last_index, "date") else None
+            )
+            if volume_last_date == today:
+                completed_volumes = completed_volumes.iloc[:-1]
+        recent_volumes = completed_volumes.tail(3)
+        baseline_volumes = completed_volumes.iloc[:-3].tail(20)
+        baseline_average = float(baseline_volumes.mean()) if not baseline_volumes.empty else 0.0
+        if len(recent_volumes) == 3:
+            three_day_avg_volume = float(recent_volumes.mean())
+            if baseline_average > 0:
+                volume_spike_ratio = three_day_avg_volume / baseline_average
 
     market_index = intraday["Close"].dropna().index[-1]
     if hasattr(market_index, "isoformat"):
@@ -106,6 +144,10 @@ def build_quote(
         distance_to_low_pct=distance_to_low_pct,
         at_three_month_low=at_low,
         market_time=market_time,
+        six_month_low=six_month_low,
+        six_month_low_date=six_month_low_date,
+        three_day_avg_volume=three_day_avg_volume,
+        volume_spike_ratio=volume_spike_ratio,
     )
 
 
@@ -132,7 +174,7 @@ class YahooMarketDataClient:
         )
         daily = yf.download(
             tickers=tickers,
-            period="3mo",
+            period="6mo",
             interval="1d",
             auto_adjust=False,
             progress=False,

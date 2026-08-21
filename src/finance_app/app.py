@@ -47,13 +47,14 @@ def create_app(*, start_scheduler: bool = True) -> Flask:
         if request.path in {"/health", "/tasks/refresh"} or not settings.web_auth_configured:
             return None
         auth = request.authorization
-        username_ok = bool(auth) and secrets.compare_digest(
-            auth.username or "", settings.web_auth_username
+        supplied_username = auth.username if auth else ""
+        supplied_password = auth.password if auth else ""
+        credential_matches = (
+            secrets.compare_digest(supplied_username or "", username)
+            and secrets.compare_digest(supplied_password or "", password)
+            for username, password in settings.web_auth_credentials
         )
-        password_ok = bool(auth) and secrets.compare_digest(
-            auth.password or "", settings.web_auth_password
-        )
-        if username_ok and password_ok:
+        if any(credential_matches):
             return None
         return Response(
             "Authentication required",

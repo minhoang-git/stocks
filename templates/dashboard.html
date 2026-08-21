@@ -112,7 +112,8 @@
           <div class="panel-heading">
             <div>
               <p class="eyebrow">LIVE WATCHLIST</p>
-              <h2>Distance from the three-month low</h2>
+              <h2>Market support and volume signals</h2>
+              <p class="panel-note">Six-month support plus the latest 3 completed sessions' average volume versus the prior 20-session average.</p>
             </div>
             <div class="table-tools">
               <label class="search-box">
@@ -121,6 +122,7 @@
               </label>
               <select id="stock-filter" aria-label="Filter stocks">
                 <option value="all">All stocks</option>
+                <option value="benchmark">Market benchmarks</option>
                 <option value="low">At 3-month low</option>
                 <option value="owned">Owned positions</option>
                 <option value="error">Data errors</option>
@@ -136,6 +138,8 @@
                   <th>Last price</th>
                   <th>Today</th>
                   <th>3-month low</th>
+                  <th>6-month low</th>
+                  <th>3D vol spike</th>
                   <th>Distance</th>
                   <th>Position</th>
                   <th>Status</th>
@@ -143,11 +147,14 @@
               </thead>
               <tbody>
                 {% for stock in data.stocks %}
-                  <tr data-symbol="{{ stock.symbol }}" data-state="{{ 'low' if stock.at_three_month_low else ('error' if stock.status == 'error' else 'normal') }}" data-owned="{{ 'true' if stock.quantity else 'false' }}">
+                  <tr class="{{ 'benchmark-row' if stock.is_benchmark else '' }}" data-symbol="{{ stock.symbol }} {{ stock.display_name }}" data-state="{{ 'low' if stock.at_three_month_low else ('error' if stock.status == 'error' else 'normal') }}" data-owned="{{ 'true' if stock.quantity else 'false' }}" data-benchmark="{{ 'true' if stock.is_benchmark else 'false' }}">
                     <td data-label="Symbol">
                       <div class="symbol-cell">
                         <span class="symbol-badge">{{ stock.symbol[:2] }}</span>
-                        <div><strong>{{ stock.symbol }}</strong><small>{{ stock.currency or 'USD' }}</small></div>
+                        <div>
+                          <strong>{{ stock.display_name }}</strong>
+                          <small>{{ stock.symbol if stock.is_benchmark else (stock.currency or 'USD') }}</small>
+                        </div>
                       </div>
                     </td>
                     <td data-label="Last price">
@@ -166,6 +173,18 @@
                       {% if stock.three_month_low is not none %}
                         <strong class="mono">${{ '{:,.2f}'.format(stock.three_month_low) }}</strong>
                         <small class="block">{{ stock.low_date }}</small>
+                      {% else %}<span class="muted">—</span>{% endif %}
+                    </td>
+                    <td data-label="6-month low">
+                      {% if stock.six_month_low is not none %}
+                        <strong class="mono">${{ '{:,.2f}'.format(stock.six_month_low) }}</strong>
+                        <small class="block">{{ stock.six_month_low_date }}</small>
+                      {% else %}<span class="muted">—</span>{% endif %}
+                    </td>
+                    <td data-label="3D volume spike">
+                      {% if stock.volume_spike_ratio is not none %}
+                        <span class="volume-ratio {{ 'volume-high' if stock.volume_spike_ratio >= 1.5 else ('volume-low' if stock.volume_spike_ratio < 0.75 else '') }}">{{ '%.2f'|format(stock.volume_spike_ratio) }}×</span>
+                        <small class="block mono">{{ '{:,.0f}'.format(stock.three_day_avg_volume) }} avg</small>
                       {% else %}<span class="muted">—</span>{% endif %}
                     </td>
                     <td data-label="Distance">
@@ -276,6 +295,7 @@
             const symbolMatch = row.dataset.symbol.includes(query);
             const stateMatch = mode === 'all'
               || (mode === 'owned' && row.dataset.owned === 'true')
+              || (mode === 'benchmark' && row.dataset.benchmark === 'true')
               || row.dataset.state === mode;
             row.hidden = !(symbolMatch && stateMatch);
             if (!row.hidden) visible += 1;

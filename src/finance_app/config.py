@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import json
 import os
 
 from dotenv import load_dotenv
@@ -46,6 +47,7 @@ class Settings:
     alert_to_number: str
     web_auth_username: str = ""
     web_auth_password: str = ""
+    web_auth_users: str = ""
     scheduler_token: str = ""
     portfolio_csv: str = ""
 
@@ -90,7 +92,25 @@ class Settings:
 
     @property
     def web_auth_configured(self) -> bool:
-        return bool(self.web_auth_username and self.web_auth_password)
+        return bool(self.web_auth_credentials)
+
+    @property
+    def web_auth_credentials(self) -> tuple[tuple[str, str], ...]:
+        credentials: list[tuple[str, str]] = []
+        if self.web_auth_username and self.web_auth_password:
+            credentials.append((self.web_auth_username, self.web_auth_password))
+        if self.web_auth_users:
+            try:
+                users = json.loads(self.web_auth_users)
+            except (TypeError, ValueError):
+                users = {}
+            if isinstance(users, dict):
+                credentials.extend(
+                    (str(username), str(password))
+                    for username, password in users.items()
+                    if username and password
+                )
+        return tuple(dict.fromkeys(credentials))
 
 
 def get_settings() -> Settings:
@@ -112,6 +132,7 @@ def get_settings() -> Settings:
         alert_to_number=os.getenv("ALERT_TO_NUMBER", "").strip(),
         web_auth_username=os.getenv("WEB_AUTH_USERNAME", "").strip(),
         web_auth_password=os.getenv("WEB_AUTH_PASSWORD", ""),
+        web_auth_users=os.getenv("WEB_AUTH_USERS", ""),
         scheduler_token=os.getenv("SCHEDULER_TOKEN", ""),
         portfolio_csv=os.getenv("PORTFOLIO_CSV", ""),
     )
