@@ -234,10 +234,10 @@
             <p class="eyebrow">MESSAGES SETUP</p>
             {% if data.is_cloud_run %}
               <h2>Cloud SMS notifications</h2>
-              <p class="setup-intro">Google Cloud cannot access the Messages app on your Mac. Configure Twilio to deliver hosted alerts to your phone.</p>
+              <p class="setup-intro">Cloud hosting cannot access the Messages app on your Mac. Configure Twilio to deliver hosted alerts to your phone.</p>
               <ol class="setup-steps">
                 <li><span>1</span><div>Create or use a Twilio account with an SMS-capable sender number.</div></li>
-                <li><span>2</span><div>Store the Twilio account SID, auth token, and sender number in Google Secret Manager.</div></li>
+                <li><span>2</span><div>Store the Twilio account SID, auth token, and sender number as private hosting environment variables.</div></li>
                 <li><span>3</span><div>Set <code>NOTIFICATION_PROVIDER=twilio</code> and your <code>ALERT_TO_NUMBER</code>.</div></li>
                 <li><span>4</span><div>Use <strong>Send a test message</strong> after the service is updated.</div></li>
               </ol>

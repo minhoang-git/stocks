@@ -90,6 +90,18 @@ reset after a restart or redeploy. Scheduled workflows in inactive public
 repositories can also be disabled by GitHub after 60 days without repository
 activity.
 
+## Free Vercel deployment
+
+Vercel can run this Flask project on its free Hobby tier using the root
+`app.py` entry point and `vercel.json`. Configure the same private environment
+variables described above, then set `SERVICE_URL` and `SCHEDULER_TOKEN` as
+GitHub repository secrets so the existing workflow can refresh prices.
+
+Vercel's function filesystem is ephemeral. The app stores SQLite data in
+`/tmp`, so dashboard history and alert cooldown records can reset when Vercel
+recycles an instance. Use a persistent database before relying on this setup
+for high-frequency or production alerting.
+
 ## Data note
 
 This app uses the third-party `yfinance` package to access publicly available Yahoo Finance data for personal use. Quotes may be delayed or temporarily unavailable and should not be treated as an execution-grade market-data feed.

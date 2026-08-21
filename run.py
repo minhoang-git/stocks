@@ -71,7 +71,9 @@ def _bootstrap_local_venv() -> None:
 
 
 def _should_start_scheduler() -> bool:
-    if os.getenv("K_SERVICE") or os.getenv("DISABLE_BACKGROUND_SCHEDULER", "").lower() in {
+    if os.getenv("K_SERVICE") or os.getenv("VERCEL") or os.getenv(
+        "DISABLE_BACKGROUND_SCHEDULER", ""
+    ).lower() in {
         "1", "true", "yes", "on",
     }:
         return False

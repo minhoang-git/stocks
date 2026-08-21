@@ -168,7 +168,7 @@ class PortfolioMonitorService:
                 "hosted portfolio" if self.settings.portfolio_csv
                 else self.settings.portfolio_abspath.rsplit("/", 1)[-1]
             ),
-            "is_cloud_run": bool(os.getenv("K_SERVICE")),
+            "is_cloud_run": bool(os.getenv("K_SERVICE") or os.getenv("VERCEL")),
         }
 
     def mark_notification_read(self, notification_id: int) -> None:

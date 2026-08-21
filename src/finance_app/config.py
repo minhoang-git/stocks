@@ -94,9 +94,12 @@ class Settings:
 
 
 def get_settings() -> Settings:
+    default_database_path = (
+        "/tmp/portfolio_monitor.db" if os.getenv("VERCEL") else "./portfolio_monitor.db"
+    )
     return Settings(
         secret_key=os.getenv("SECRET_KEY", "change-me"),
-        database_path=os.getenv("MONITOR_DATABASE_PATH", "./portfolio_monitor.db"),
+        database_path=os.getenv("MONITOR_DATABASE_PATH", default_database_path),
         portfolio_path=os.getenv("PORTFOLIO_PATH", "./portfolio.csv"),
         refresh_interval_minutes=max(1, _get_int("REFRESH_INTERVAL_MINUTES", 5)),
         alert_cooldown_hours=max(0.0, _get_float("ALERT_COOLDOWN_HOURS", 24.0)),
