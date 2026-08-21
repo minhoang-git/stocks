@@ -67,6 +67,8 @@
                   Twilio is configured. New three-month-low events will be texted automatically.
                 {% elif data.notification_provider == 'google_chat' %}
                   New three-month-low events will be posted to your private Google Chat Space.
+                {% elif data.notification_provider == 'email' %}
+                  New three-month-low events will be emailed with high-priority headers.
                 {% else %}
                   Configure Google Chat, macOS Messages, or Twilio. Low events are still saved below.
                 {% endif %}
@@ -253,7 +255,16 @@
 
           <section class="panel setup-panel" id="sms-setup">
             <p class="eyebrow">NOTIFICATION SETUP</p>
-            {% if data.notification_provider == 'google_chat' or data.is_cloud_run %}
+            {% if data.notification_provider == 'email' %}
+              <h2>High-priority Gmail alerts</h2>
+              <p class="setup-intro">Portfolio Pulse sends each new low alert with urgent email headers and a <strong>[HIGH PRIORITY]</strong> subject.</p>
+              <ol class="setup-steps">
+                <li><span>1</span><div>Turn on Google 2-Step Verification and create a Gmail app password.</div></li>
+                <li><span>2</span><div>Store the Gmail address and app password as private hosting variables.</div></li>
+                <li><span>3</span><div>Set <code>NOTIFICATION_PROVIDER=email</code> and <code>ALERT_TO_EMAIL</code>.</div></li>
+                <li><span>4</span><div>Use <strong>Send a test message</strong> after the service is updated.</div></li>
+              </ol>
+            {% elif data.notification_provider == 'google_chat' %}
               <h2>Google Chat notifications</h2>
               <p class="setup-intro">Portfolio Pulse can post hosted alerts to a private Google Chat Space that you can open from Gmail or the Chat app.</p>
               <ol class="setup-steps">
@@ -263,7 +274,7 @@
                 <li><span>4</span><div>Use <strong>Send a test message</strong> after the service is updated.</div></li>
               </ol>
               <p class="setup-intro">Google does not enable incoming webhooks for personal <code>@gmail.com</code> accounts.</p>
-            {% else %}
+            {% elif data.notification_provider == 'mac_messages' %}
               <h2>macOS Messages notifications</h2>
               <p class="setup-intro">The app can send alerts through the Messages account already signed in on this Mac—no Twilio credentials required.</p>
               <ol class="setup-steps">
@@ -271,6 +282,14 @@
                 <li><span>2</span><div>Set <code>NOTIFICATION_PROVIDER=mac_messages</code> and your <code>ALERT_TO_NUMBER</code>.</div></li>
                 <li><span>3</span><div>When macOS asks whether the app may control Messages, choose <strong>Allow</strong>.</div></li>
                 <li><span>4</span><div>Keep Portfolio Pulse running so scheduled low alerts can be delivered.</div></li>
+              </ol>
+            {% else %}
+              <h2>Twilio SMS notifications</h2>
+              <p class="setup-intro">Configure an SMS-capable Twilio sender for hosted text alerts.</p>
+              <ol class="setup-steps">
+                <li><span>1</span><div>Store the Twilio account SID, auth token, and sender number as private hosting variables.</div></li>
+                <li><span>2</span><div>Set <code>NOTIFICATION_PROVIDER=twilio</code> and your <code>ALERT_TO_NUMBER</code>.</div></li>
+                <li><span>3</span><div>Use <strong>Send a test message</strong> after the service is updated.</div></li>
               </ol>
             {% endif %}
           </section>

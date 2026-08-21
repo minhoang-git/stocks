@@ -9,7 +9,7 @@ A local Flask dashboard that monitors every ticker in `portfolio.csv`, refreshes
 - Polls Yahoo Finance every five minutes by default.
 - Shows last price, daily move, rolling three- and six-month lows, three-day volume expansion, distance from the three-month low, and tracked position P&L.
 - Creates an in-app alert when a symbol reaches its rolling three-month low.
-- Sends the same alert to Google Chat, macOS Messages, or Twilio.
+- Sends the same alert as high-priority email, through Google Chat, macOS Messages, or Twilio.
 - Applies a per-symbol cooldown (24 hours by default) to prevent repeated messages for the same prolonged low.
 - Keeps individual ticker failures visible without stopping the rest of the watchlist.
 
@@ -43,6 +43,27 @@ Restart Portfolio Pulse and use **Send a test message** in the dashboard. The fi
 ### Optional Twilio alternative
 
 To use Twilio instead, set `NOTIFICATION_PROVIDER=twilio` and configure `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_FROM_NUMBER` in `.env`.
+
+### High-priority Gmail alerts
+
+For hosted alerts, Gmail SMTP is the simplest option for a personal Gmail
+account. Turn on 2-Step Verification, create a Gmail app password, and store
+that app password only in the private hosting configuration:
+
+```dotenv
+NOTIFICATION_PROVIDER=email
+EMAIL_SMTP_HOST=smtp.gmail.com
+EMAIL_SMTP_PORT=587
+EMAIL_SMTP_USE_TLS=true
+EMAIL_SMTP_USERNAME=your-address@gmail.com
+EMAIL_SMTP_PASSWORD=your-16-character-app-password
+EMAIL_FROM_ADDRESS=your-address@gmail.com
+ALERT_TO_EMAIL=your-address@gmail.com
+```
+
+Alert emails include `Importance: high`, `Priority: urgent`, `X-Priority: 1`,
+and a `[HIGH PRIORITY]` subject prefix. Gmail ultimately controls inbox sorting,
+so these headers strongly signal urgency but cannot guarantee placement.
 
 ### Google Chat notifications
 

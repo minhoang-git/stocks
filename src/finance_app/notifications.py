@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from email.message import EmailMessage
+import smtplib
+import ssl
 import subprocess
 import sys
 
@@ -40,6 +43,7 @@ class NotificationService:
             "mac_messages": "macOS Messages",
             "twilio": "Twilio SMS",
             "google_chat": "Google Chat",
+            "email": "High-priority email",
         }.get(self.provider, "Not configured")
 
     def add_in_app(self, title: str, message: str, level: str = "info") -> int:
@@ -121,13 +125,55 @@ end run
         except requests.RequestException as exc:
             return NotifyResult(False, "failed", f"Google Chat could not send: {exc}")
 
-    def send_phone_message(self, body: str) -> NotifyResult:
+    def _send_email(self, body: str, subject: str) -> NotifyResult:
+        if not self.settings.email_configured:
+            return NotifyResult(False, "not_configured", "Email delivery is not configured")
+
+        message = EmailMessage()
+        message["From"] = self.settings.email_from_address
+        message["To"] = self.settings.alert_to_email
+        clean_subject = subject.replace("\r", " ").replace("\n", " ").strip()
+        message["Subject"] = f"[HIGH PRIORITY] {clean_subject}"
+        message["Importance"] = "high"
+        message["Priority"] = "urgent"
+        message["X-Priority"] = "1"
+        message["X-MSMail-Priority"] = "High"
+        message.set_content(body)
+
+        try:
+            with smtplib.SMTP(
+                self.settings.email_smtp_host,
+                self.settings.email_smtp_port,
+                timeout=15,
+            ) as smtp:
+                if self.settings.email_smtp_use_tls:
+                    smtp.starttls(context=ssl.create_default_context())
+                smtp.login(
+                    self.settings.email_smtp_username,
+                    self.settings.email_smtp_password,
+                )
+                smtp.send_message(message)
+            return NotifyResult(
+                True,
+                "sent",
+                f"High-priority email accepted for {self.settings.alert_to_email}",
+            )
+        except (OSError, smtplib.SMTPException) as exc:
+            return NotifyResult(False, "failed", f"Email could not send: {exc}")
+
+    def send_phone_message(
+        self,
+        body: str,
+        subject: str = "Portfolio Pulse stock alert",
+    ) -> NotifyResult:
         if self.provider == "mac_messages":
             return self._send_mac_messages(body)
         if self.provider == "twilio":
             return self._send_twilio(body)
         if self.provider == "google_chat":
             return self._send_google_chat(body)
+        if self.provider == "email":
+            return self._send_email(body, subject)
         return NotifyResult(False, "not_configured", "No notification provider is configured")
 
     def send_low_alert(self, *, symbol: str, current_price: float, session_low: float, low: float) -> NotifyResult:
@@ -136,4 +182,4 @@ end run
             f"Rolling 3-month low ${low:,.2f}; current ${current_price:,.2f}."
         )
         self.add_in_app(f"{symbol} reached a 3-month low", message, "low")
-        return self.send_phone_message(message)
+        return self.send_phone_message(message, f"{symbol} reached a 3-month low")

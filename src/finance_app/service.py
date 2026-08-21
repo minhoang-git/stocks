@@ -215,5 +215,6 @@ class PortfolioMonitorService:
 
     def send_test_message(self):
         return self.notifier.send_phone_message(
-            f"Portfolio Pulse test: {self.notifier.provider_label} notifications are configured correctly."
+            f"Portfolio Pulse test: {self.notifier.provider_label} notifications are configured correctly.",
+            "Portfolio Pulse test message",
         )

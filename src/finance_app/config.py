@@ -47,6 +47,13 @@ class Settings:
     alert_to_number: str
     google_chat_webhook_url: str = ""
     google_chat_recipient_email: str = ""
+    email_smtp_host: str = ""
+    email_smtp_port: int = 587
+    email_smtp_use_tls: bool = True
+    email_smtp_username: str = ""
+    email_smtp_password: str = ""
+    email_from_address: str = ""
+    alert_to_email: str = ""
     web_auth_username: str = ""
     web_auth_password: str = ""
     web_auth_users: str = ""
@@ -81,6 +88,18 @@ class Settings:
         return bool(self.google_chat_webhook_url)
 
     @property
+    def email_configured(self) -> bool:
+        return all(
+            (
+                self.email_smtp_host,
+                self.email_smtp_username,
+                self.email_smtp_password,
+                self.email_from_address,
+                self.alert_to_email,
+            )
+        )
+
+    @property
     def active_notification_provider(self) -> str | None:
         if self.notification_provider == "mac_messages":
             return "mac_messages" if self.mac_messages_configured else None
@@ -88,6 +107,10 @@ class Settings:
             return "twilio" if self.twilio_configured else None
         if self.notification_provider == "google_chat":
             return "google_chat" if self.google_chat_configured else None
+        if self.notification_provider == "email":
+            return "email" if self.email_configured else None
+        if self.email_configured:
+            return "email"
         if self.google_chat_configured:
             return "google_chat"
         if self.twilio_configured:
@@ -146,6 +169,15 @@ def get_settings() -> Settings:
         alert_to_number=os.getenv("ALERT_TO_NUMBER", "").strip(),
         google_chat_webhook_url=os.getenv("GOOGLE_CHAT_WEBHOOK_URL", "").strip(),
         google_chat_recipient_email=os.getenv("GOOGLE_CHAT_RECIPIENT_EMAIL", "").strip(),
+        email_smtp_host=os.getenv("EMAIL_SMTP_HOST", "smtp.gmail.com").strip(),
+        email_smtp_port=max(1, _get_int("EMAIL_SMTP_PORT", 587)),
+        email_smtp_use_tls=_get_bool("EMAIL_SMTP_USE_TLS", True),
+        email_smtp_username=os.getenv("EMAIL_SMTP_USERNAME", "").strip(),
+        email_smtp_password=os.getenv("EMAIL_SMTP_PASSWORD", ""),
+        email_from_address=os.getenv(
+            "EMAIL_FROM_ADDRESS", os.getenv("EMAIL_SMTP_USERNAME", "")
+        ).strip(),
+        alert_to_email=os.getenv("ALERT_TO_EMAIL", "").strip(),
         web_auth_username=os.getenv("WEB_AUTH_USERNAME", "").strip(),
         web_auth_password=os.getenv("WEB_AUTH_PASSWORD", ""),
         web_auth_users=os.getenv("WEB_AUTH_USERS", ""),

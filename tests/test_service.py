@@ -45,7 +45,7 @@ class FakeNotifier:
     def add_in_app(self, *args, **kwargs):
         return 1
 
-    def send_phone_message(self, body):
+    def send_phone_message(self, body, subject="Portfolio Pulse stock alert"):
         return NotifyResult(True, "sent", "test-message")
 
 
