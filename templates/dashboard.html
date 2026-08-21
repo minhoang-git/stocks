@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Live Yahoo Finance portfolio monitoring with three-month-low phone alerts.">
+    <meta name="description" content="Live Yahoo Finance portfolio monitoring with market support and volume signals.">
     <title>Portfolio Pulse</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -42,7 +42,7 @@
             <h1>Know when a stock reaches its floor.</h1>
             <p class="hero-subtitle">
               Tracking {{ data.stock_count }} symbols from {{ data.portfolio_filename }}.
-              Prices refresh every {{ data.refresh_interval_minutes }} minutes and low alerts cool down for {{ data.alert_cooldown_hours|int }} hours.
+              Prices refresh every {{ data.refresh_interval_minutes }} minutes with rolling support and volume signals.
             </p>
             <div class="run-status">
               <span class="status-icon {{ 'status-warning' if data.error_count else 'status-good' }}"></span>
@@ -55,33 +55,6 @@
               </span>
             </div>
           </div>
-          <aside class="alert-setup {{ 'is-ready' if data.notifications_configured else '' }}">
-            <div class="setup-icon" aria-hidden="true">{{ '✓' if data.notifications_configured else '!' }}</div>
-            <div>
-              <p class="setup-label">ALERT DELIVERY</p>
-              <h2>{{ data.notification_provider_label + ' is ready' if data.notifications_configured else 'Connect notifications' }}</h2>
-              <p>
-                {% if data.notification_provider == 'mac_messages' %}
-                  New three-month-low events will be sent through the Messages app on this Mac.
-                {% elif data.notification_provider == 'twilio' %}
-                  Twilio is configured. New three-month-low events will be texted automatically.
-                {% elif data.notification_provider == 'google_chat' %}
-                  New three-month-low events will be posted to your private Google Chat Space.
-                {% elif data.notification_provider == 'email' %}
-                  New three-month-low events will be emailed with high-priority headers.
-                {% else %}
-                  Configure Google Chat, macOS Messages, or Twilio. Low events are still saved below.
-                {% endif %}
-              </p>
-              {% if data.notifications_configured %}
-                <form action="{{ url_for('test_message') }}" method="post">
-                  <button class="text-button" type="submit">Send a test message →</button>
-                </form>
-              {% else %}
-                <a class="text-button" href="#sms-setup">View setup instructions →</a>
-              {% endif %}
-            </div>
-          </aside>
         </section>
 
         <section class="metric-grid" aria-label="Portfolio summary">
@@ -226,74 +199,6 @@
           </div>
         </section>
 
-        <div class="lower-grid">
-          <section class="panel alert-panel">
-            <div class="panel-heading compact">
-              <div>
-                <p class="eyebrow">ALERT CENTER</p>
-                <h2>Recent low events</h2>
-              </div>
-              <span class="count-pill">{{ data.alerts|length }}</span>
-            </div>
-            {% if data.alerts %}
-              <div class="event-list">
-                {% for alert in data.alerts[:8] %}
-                  <article class="event-item">
-                    <span class="event-symbol">{{ alert.symbol }}</span>
-                    <div>
-                      <strong>${{ '{:,.2f}'.format(alert.trigger_price) }} session low</strong>
-                      <small class="timestamp" data-time="{{ alert.created_at }}">{{ alert.created_at }}</small>
-                    </div>
-                    <span class="delivery-tag delivery-{{ alert.sms_status }}">{{ alert.sms_status.replace('_', ' ') }}</span>
-                  </article>
-                {% endfor %}
-              </div>
-            {% else %}
-              <div class="empty-alerts"><span>◎</span><p>No low alerts yet. The monitor is watching.</p></div>
-            {% endif %}
-          </section>
-
-          <section class="panel setup-panel" id="sms-setup">
-            <p class="eyebrow">NOTIFICATION SETUP</p>
-            {% if data.notification_provider == 'email' %}
-              <h2>High-priority Gmail alerts</h2>
-              <p class="setup-intro">Portfolio Pulse sends each new low alert with urgent email headers and a <strong>[HIGH PRIORITY]</strong> subject.</p>
-              <ol class="setup-steps">
-                <li><span>1</span><div>Turn on Google 2-Step Verification and create a Gmail app password.</div></li>
-                <li><span>2</span><div>Store the Gmail address and app password as private hosting variables.</div></li>
-                <li><span>3</span><div>Set <code>NOTIFICATION_PROVIDER=email</code> and <code>ALERT_TO_EMAIL</code>.</div></li>
-                <li><span>4</span><div>Use <strong>Send a test message</strong> after the service is updated.</div></li>
-              </ol>
-            {% elif data.notification_provider == 'google_chat' %}
-              <h2>Google Chat notifications</h2>
-              <p class="setup-intro">Portfolio Pulse can post hosted alerts to a private Google Chat Space that you can open from Gmail or the Chat app.</p>
-              <ol class="setup-steps">
-                <li><span>1</span><div>Using a Google Workspace account, create a private Google Chat Space and add an incoming webhook from <strong>Apps &amp; integrations</strong>.</div></li>
-                <li><span>2</span><div>Store the webhook URL as the private <code>GOOGLE_CHAT_WEBHOOK_URL</code> hosting variable.</div></li>
-                <li><span>3</span><div>Set <code>NOTIFICATION_PROVIDER=google_chat</code> and optionally <code>GOOGLE_CHAT_RECIPIENT_EMAIL</code>.</div></li>
-                <li><span>4</span><div>Use <strong>Send a test message</strong> after the service is updated.</div></li>
-              </ol>
-              <p class="setup-intro">Google does not enable incoming webhooks for personal <code>@gmail.com</code> accounts.</p>
-            {% elif data.notification_provider == 'mac_messages' %}
-              <h2>macOS Messages notifications</h2>
-              <p class="setup-intro">The app can send alerts through the Messages account already signed in on this Mac—no Twilio credentials required.</p>
-              <ol class="setup-steps">
-                <li><span>1</span><div>Sign in to iMessage in the macOS Messages app.</div></li>
-                <li><span>2</span><div>Set <code>NOTIFICATION_PROVIDER=mac_messages</code> and your <code>ALERT_TO_NUMBER</code>.</div></li>
-                <li><span>3</span><div>When macOS asks whether the app may control Messages, choose <strong>Allow</strong>.</div></li>
-                <li><span>4</span><div>Keep Portfolio Pulse running so scheduled low alerts can be delivered.</div></li>
-              </ol>
-            {% else %}
-              <h2>Twilio SMS notifications</h2>
-              <p class="setup-intro">Configure an SMS-capable Twilio sender for hosted text alerts.</p>
-              <ol class="setup-steps">
-                <li><span>1</span><div>Store the Twilio account SID, auth token, and sender number as private hosting variables.</div></li>
-                <li><span>2</span><div>Set <code>NOTIFICATION_PROVIDER=twilio</code> and your <code>ALERT_TO_NUMBER</code>.</div></li>
-                <li><span>3</span><div>Use <strong>Send a test message</strong> after the service is updated.</div></li>
-              </ol>
-            {% endif %}
-          </section>
-        </div>
       </main>
 
       <footer>

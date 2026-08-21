@@ -72,23 +72,6 @@ def create_app(*, start_scheduler: bool = True) -> Flask:
         flash(result["reason"], "success" if result.get("ok") else "warning")
         return redirect(url_for("dashboard"))
 
-    @app.post("/notifications/test-message")
-    @app.post("/notifications/test-sms")
-    def test_message():
-        result = service.send_test_message()
-        flash(result.detail, "success" if result.ok else "warning")
-        return redirect(url_for("dashboard"))
-
-    @app.post("/notifications/<int:notification_id>/read")
-    def mark_notification_read(notification_id: int):
-        service.mark_notification_read(notification_id)
-        return redirect(url_for("dashboard"))
-
-    @app.post("/notifications/read-all")
-    def mark_all_notifications_read():
-        service.mark_all_notifications_read()
-        return redirect(url_for("dashboard"))
-
     @app.get("/api/state")
     def api_state():
         return jsonify(service.dashboard_data())

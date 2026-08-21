@@ -24,39 +24,7 @@ services:
         value: /tmp/portfolio_monitor.db
       - key: DISABLE_BACKGROUND_SCHEDULER
         value: "true"
-      - key: NOTIFICATION_PROVIDER
-        value: email
-      - key: EMAIL_SMTP_HOST
-        value: smtp.gmail.com
-      - key: EMAIL_SMTP_PORT
-        value: "587"
-      - key: EMAIL_SMTP_USE_TLS
-        value: "true"
-      - key: EMAIL_SMTP_USERNAME
-        sync: false
-      - key: EMAIL_SMTP_PASSWORD
-        sync: false
-      - key: EMAIL_FROM_ADDRESS
-        sync: false
-      - key: ALERT_TO_EMAIL
-        sync: false
-      - key: GOOGLE_CHAT_WEBHOOK_URL
-        sync: false
-      - key: GOOGLE_CHAT_RECIPIENT_EMAIL
-        sync: false
-      - key: MAC_MESSAGES_ENABLED
-        value: "false"
-      - key: TWILIO_ACCOUNT_SID
-        sync: false
-      - key: TWILIO_AUTH_TOKEN
-        sync: false
-      - key: TWILIO_FROM_NUMBER
-        sync: false
-      - key: ALERT_TO_NUMBER
-        sync: false
       - key: REFRESH_INTERVAL_MINUTES
         value: "5"
-      - key: ALERT_COOLDOWN_HOURS
-        value: "24"
       - key: LOW_TOLERANCE_PCT
         value: "0"

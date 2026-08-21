@@ -24,36 +24,13 @@ def _get_int(name: str, default: int) -> int:
         return default
 
 
-def _get_bool(name: str, default: bool) -> bool:
-    raw = os.getenv(name)
-    if raw is None:
-        return default
-    return raw.strip().lower() in {"1", "true", "yes", "on"}
-
-
 @dataclass(frozen=True)
 class Settings:
     secret_key: str
     database_path: str
     portfolio_path: str
     refresh_interval_minutes: int
-    alert_cooldown_hours: float
     low_tolerance_pct: float
-    notification_provider: str
-    mac_messages_enabled: bool
-    twilio_account_sid: str
-    twilio_auth_token: str
-    twilio_from_number: str
-    alert_to_number: str
-    google_chat_webhook_url: str = ""
-    google_chat_recipient_email: str = ""
-    email_smtp_host: str = ""
-    email_smtp_port: int = 587
-    email_smtp_use_tls: bool = True
-    email_smtp_username: str = ""
-    email_smtp_password: str = ""
-    email_from_address: str = ""
-    alert_to_email: str = ""
     web_auth_username: str = ""
     web_auth_password: str = ""
     web_auth_users: str = ""
@@ -67,65 +44,6 @@ class Settings:
     @property
     def portfolio_abspath(self) -> str:
         return str(Path(self.portfolio_path).resolve())
-
-    @property
-    def twilio_configured(self) -> bool:
-        return all(
-            (
-                self.twilio_account_sid,
-                self.twilio_auth_token,
-                self.twilio_from_number,
-                self.alert_to_number,
-            )
-        )
-
-    @property
-    def mac_messages_configured(self) -> bool:
-        return self.mac_messages_enabled and bool(self.alert_to_number)
-
-    @property
-    def google_chat_configured(self) -> bool:
-        return bool(self.google_chat_webhook_url)
-
-    @property
-    def email_configured(self) -> bool:
-        return all(
-            (
-                self.email_smtp_host,
-                self.email_smtp_username,
-                self.email_smtp_password,
-                self.email_from_address,
-                self.alert_to_email,
-            )
-        )
-
-    @property
-    def active_notification_provider(self) -> str | None:
-        if self.notification_provider == "mac_messages":
-            return "mac_messages" if self.mac_messages_configured else None
-        if self.notification_provider == "twilio":
-            return "twilio" if self.twilio_configured else None
-        if self.notification_provider == "google_chat":
-            return "google_chat" if self.google_chat_configured else None
-        if self.notification_provider == "email":
-            return "email" if self.email_configured else None
-        if self.email_configured:
-            return "email"
-        if self.google_chat_configured:
-            return "google_chat"
-        if self.twilio_configured:
-            return "twilio"
-        if self.mac_messages_configured:
-            return "mac_messages"
-        return None
-
-    @property
-    def phone_notifications_configured(self) -> bool:
-        return self.active_notification_provider is not None
-
-    @property
-    def notifications_configured(self) -> bool:
-        return self.active_notification_provider is not None
 
     @property
     def web_auth_configured(self) -> bool:
@@ -159,25 +77,7 @@ def get_settings() -> Settings:
         database_path=os.getenv("MONITOR_DATABASE_PATH", default_database_path),
         portfolio_path=os.getenv("PORTFOLIO_PATH", "./portfolio.csv"),
         refresh_interval_minutes=max(1, _get_int("REFRESH_INTERVAL_MINUTES", 5)),
-        alert_cooldown_hours=max(0.0, _get_float("ALERT_COOLDOWN_HOURS", 24.0)),
         low_tolerance_pct=max(0.0, _get_float("LOW_TOLERANCE_PCT", 0.0)),
-        notification_provider=os.getenv("NOTIFICATION_PROVIDER", "auto").strip().lower(),
-        mac_messages_enabled=_get_bool("MAC_MESSAGES_ENABLED", False),
-        twilio_account_sid=os.getenv("TWILIO_ACCOUNT_SID", "").strip(),
-        twilio_auth_token=os.getenv("TWILIO_AUTH_TOKEN", "").strip(),
-        twilio_from_number=os.getenv("TWILIO_FROM_NUMBER", "").strip(),
-        alert_to_number=os.getenv("ALERT_TO_NUMBER", "").strip(),
-        google_chat_webhook_url=os.getenv("GOOGLE_CHAT_WEBHOOK_URL", "").strip(),
-        google_chat_recipient_email=os.getenv("GOOGLE_CHAT_RECIPIENT_EMAIL", "").strip(),
-        email_smtp_host=os.getenv("EMAIL_SMTP_HOST", "smtp.gmail.com").strip(),
-        email_smtp_port=max(1, _get_int("EMAIL_SMTP_PORT", 587)),
-        email_smtp_use_tls=_get_bool("EMAIL_SMTP_USE_TLS", True),
-        email_smtp_username=os.getenv("EMAIL_SMTP_USERNAME", "").strip(),
-        email_smtp_password=os.getenv("EMAIL_SMTP_PASSWORD", ""),
-        email_from_address=os.getenv(
-            "EMAIL_FROM_ADDRESS", os.getenv("EMAIL_SMTP_USERNAME", "")
-        ).strip(),
-        alert_to_email=os.getenv("ALERT_TO_EMAIL", "").strip(),
         web_auth_username=os.getenv("WEB_AUTH_USERNAME", "").strip(),
         web_auth_password=os.getenv("WEB_AUTH_PASSWORD", ""),
         web_auth_users=os.getenv("WEB_AUTH_USERS", ""),

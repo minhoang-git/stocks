@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-import os
 from threading import Lock
 from typing import Any
 
 from . import db
 from .config import Settings
 from .market_data import YahooMarketDataClient
-from .notifications import NotificationService
 from .portfolio import load_portfolio, load_portfolio_text
 
 
@@ -29,12 +26,10 @@ class PortfolioMonitorService:
         settings: Settings,
         *,
         market_data: YahooMarketDataClient | None = None,
-        notifier: NotificationService | None = None,
     ):
         self.settings = settings
         self.db_path = settings.database_abspath
         self.market_data = market_data or YahooMarketDataClient()
-        self.notifier = notifier or NotificationService(settings)
         self._cycle_lock = Lock()
         self.sync_portfolio()
 
@@ -63,19 +58,6 @@ class PortfolioMonitorService:
         db.seed_reference_quotes(self.db_path, entries)
         return entries
 
-    def _alert_is_due(self, symbol: str, now: datetime) -> bool:
-        last = db.latest_low_alert(self.db_path, symbol)
-        if not last:
-            return True
-        try:
-            last_at = datetime.fromisoformat(last["created_at"])
-        except (TypeError, ValueError):
-            return True
-        if last_at.tzinfo is None:
-            last_at = last_at.replace(tzinfo=timezone.utc)
-        cooldown = timedelta(hours=self.settings.alert_cooldown_hours)
-        return now - last_at >= cooldown
-
     def run_cycle(self) -> dict[str, Any]:
         if not self._cycle_lock.acquire(blocking=False):
             return {"ok": False, "reason": "A market refresh is already running."}
@@ -84,7 +66,6 @@ class PortfolioMonitorService:
             entries = self.sync_portfolio()
             symbols = [entry["symbol"] for entry in entries]
             run_id = db.create_monitor_run(self.db_path, len(symbols))
-            now = datetime.now(timezone.utc)
 
             try:
                 quotes, errors = self.market_data.fetch_quotes(
@@ -103,28 +84,12 @@ class PortfolioMonitorService:
                     error_count=len(symbols),
                     summary=message,
                 )
-                self.notifier.add_in_app("Market data refresh failed", message, "error")
                 return {"ok": False, "reason": message}
 
-            new_alerts: list[str] = []
+            low_hits = 0
             for symbol, quote in quotes.items():
                 db.upsert_quote(self.db_path, quote.as_dict())
-                if quote.at_three_month_low and self._alert_is_due(symbol, now):
-                    result = self.notifier.send_low_alert(
-                        symbol=symbol,
-                        current_price=quote.price,
-                        session_low=quote.session_low,
-                        low=quote.three_month_low,
-                    )
-                    db.insert_low_alert(
-                        self.db_path,
-                        symbol=symbol,
-                        trigger_price=quote.session_low,
-                        three_month_low=quote.three_month_low,
-                        sms_status=result.status,
-                        sms_detail=result.detail,
-                    )
-                    new_alerts.append(symbol)
+                low_hits += int(quote.at_three_month_low)
 
             for symbol, error in errors.items():
                 db.mark_quote_error(self.db_path, symbol, error)
@@ -132,13 +97,13 @@ class PortfolioMonitorService:
             status = "partial" if errors else "complete"
             summary = (
                 f"Updated {len(quotes)} of {len(symbols)} symbols; "
-                f"{len(new_alerts)} new low alert(s); {len(errors)} error(s)."
+                f"{low_hits} at 3-month low; {len(errors)} error(s)."
             )
             db.finish_monitor_run(
                 self.db_path,
                 run_id,
                 status=status,
-                hit_count=len(new_alerts),
+                hit_count=low_hits,
                 error_count=len(errors),
                 summary=summary,
             )
@@ -147,7 +112,7 @@ class PortfolioMonitorService:
                 "reason": summary,
                 "updated": len(quotes),
                 "errors": errors,
-                "new_alerts": new_alerts,
+                "low_hits": low_hits,
             }
         finally:
             self._cycle_lock.release()
@@ -191,30 +156,9 @@ class PortfolioMonitorService:
             "cost_basis": cost_basis,
             "tracked_pnl": tracked_value - cost_basis if cost_basis else None,
             "latest_run": latest_run,
-            "alerts": db.list_low_alerts(self.db_path, limit=30),
-            "notifications": db.list_notifications(self.db_path, limit=40),
-            "unread_count": db.unread_notification_count(self.db_path),
-            "phone_notifications_configured": self.notifier.phone_notifications_configured,
-            "notifications_configured": self.notifier.notifications_configured,
-            "notification_provider": self.notifier.provider,
-            "notification_provider_label": self.notifier.provider_label,
             "refresh_interval_minutes": self.settings.refresh_interval_minutes,
-            "alert_cooldown_hours": self.settings.alert_cooldown_hours,
             "portfolio_filename": (
                 "hosted portfolio" if self.settings.portfolio_csv
                 else self.settings.portfolio_abspath.rsplit("/", 1)[-1]
             ),
-            "is_cloud_run": bool(os.getenv("K_SERVICE") or os.getenv("VERCEL")),
         }
-
-    def mark_notification_read(self, notification_id: int) -> None:
-        db.mark_notification_read(self.db_path, notification_id)
-
-    def mark_all_notifications_read(self) -> None:
-        db.mark_all_notifications_read(self.db_path)
-
-    def send_test_message(self):
-        return self.notifier.send_phone_message(
-            f"Portfolio Pulse test: {self.notifier.provider_label} notifications are configured correctly.",
-            "Portfolio Pulse test message",
-        )

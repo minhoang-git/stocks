@@ -39,16 +39,6 @@ CREATE TABLE IF NOT EXISTS quote_snapshots (
     FOREIGN KEY(symbol) REFERENCES watchlist(symbol)
 );
 
-CREATE TABLE IF NOT EXISTS low_alerts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    created_at TEXT NOT NULL,
-    symbol TEXT NOT NULL,
-    trigger_price REAL NOT NULL,
-    three_month_low REAL NOT NULL,
-    sms_status TEXT NOT NULL,
-    sms_detail TEXT NOT NULL
-);
-
 CREATE TABLE IF NOT EXISTS monitor_runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     started_at TEXT NOT NULL,
@@ -60,14 +50,6 @@ CREATE TABLE IF NOT EXISTS monitor_runs (
     summary TEXT NOT NULL DEFAULT ''
 );
 
-CREATE TABLE IF NOT EXISTS notifications (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    created_at TEXT NOT NULL,
-    level TEXT NOT NULL,
-    title TEXT NOT NULL,
-    message TEXT NOT NULL,
-    is_read INTEGER NOT NULL DEFAULT 0
-);
 """
 
 
@@ -273,63 +255,3 @@ def finish_monitor_run(
 
 def latest_monitor_run(db_path: str) -> dict[str, Any] | None:
     return fetch_one(db_path, "SELECT * FROM monitor_runs ORDER BY id DESC LIMIT 1")
-
-
-def insert_low_alert(
-    db_path: str,
-    *,
-    symbol: str,
-    trigger_price: float,
-    three_month_low: float,
-    sms_status: str,
-    sms_detail: str,
-) -> int:
-    return execute(
-        db_path,
-        """
-        INSERT INTO low_alerts (
-            created_at, symbol, trigger_price, three_month_low, sms_status, sms_detail
-        ) VALUES (?, ?, ?, ?, ?, ?)
-        """,
-        (utc_now_iso(), symbol, trigger_price, three_month_low, sms_status, sms_detail[:500]),
-    )
-
-
-def latest_low_alert(db_path: str, symbol: str) -> dict[str, Any] | None:
-    return fetch_one(
-        db_path,
-        "SELECT * FROM low_alerts WHERE symbol = ? ORDER BY id DESC LIMIT 1",
-        (symbol,),
-    )
-
-
-def list_low_alerts(db_path: str, limit: int = 30) -> list[dict[str, Any]]:
-    return fetch_all(db_path, "SELECT * FROM low_alerts ORDER BY id DESC LIMIT ?", (limit,))
-
-
-def insert_notification(db_path: str, level: str, title: str, message: str) -> int:
-    return execute(
-        db_path,
-        """
-        INSERT INTO notifications (created_at, level, title, message, is_read)
-        VALUES (?, ?, ?, ?, 0)
-        """,
-        (utc_now_iso(), level, title, message),
-    )
-
-
-def list_notifications(db_path: str, limit: int = 40) -> list[dict[str, Any]]:
-    return fetch_all(db_path, "SELECT * FROM notifications ORDER BY id DESC LIMIT ?", (limit,))
-
-
-def mark_notification_read(db_path: str, notification_id: int) -> None:
-    execute(db_path, "UPDATE notifications SET is_read = 1 WHERE id = ?", (notification_id,))
-
-
-def mark_all_notifications_read(db_path: str) -> None:
-    execute(db_path, "UPDATE notifications SET is_read = 1 WHERE is_read = 0")
-
-
-def unread_notification_count(db_path: str) -> int:
-    row = fetch_one(db_path, "SELECT COUNT(*) AS total FROM notifications WHERE is_read = 0")
-    return int(row["total"]) if row else 0
